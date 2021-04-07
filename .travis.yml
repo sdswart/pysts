@@ -1,0 +1,23 @@
+language: python
+python:
+- '3.6'
+install:
+- pip install -r requirements-dev.txt
+script:
+- pytest
+- py.test --cov-report term-missing --cov=pysts tests/
+after_script: cd ~
+after_success:
+- coveralls
+before_deploy:
+- pip install -r requirements.txt
+- python3 setup.py sdist bdist_wheel
+deploy:
+  provider: pypi
+  user: pipyuser
+  server: https://pypi.gtl.fyi
+  password:
+    secure: pipy$Pass
+  on:
+    branch: master
+  skip_cleanup: true
