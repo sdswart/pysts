@@ -86,7 +86,7 @@ def obj_to_buffer(obj):
 
 def buffer_to_obj(buffer,*args,**kwargs):
     obj_type=kwargs['obj_type'] if 'obj_type' in kwargs else (args[0] if len(args)>0 else None)
-    elif obj_type=='stringio':
+    if obj_type=='stringio':
         obj=StringIOWrapper(buffer)
     elif obj_type=='obj':
         obj=pickle.load(buffer)
