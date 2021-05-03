@@ -1,1 +1,3 @@
-from .classes import DB
+from . import classes
+
+DB=classes.DB

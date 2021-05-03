@@ -27,3 +27,5 @@ NOTE: Delete previous builds before uploading
 
 ####  download:
 ####    - pip install --upgrade -i https://pypi.gtl.fyi/simple pysts
+OR
+####    -pip install --upgrade git+https://github.com/sdswart/pysts.git
