@@ -4,7 +4,7 @@ import gridfs
 import pymongo
 from pymongo import InsertOne, DeleteMany, ReplaceOne, UpdateOne, UpdateMany, IndexModel
 from .process import get_buffer_metas, df_to_buffer, buffer_to_df
-from .utils import get_client, to_list
+from .utils import get_client, to_list, obj_to_buffer, buffer_to_obj
 
 INDEX_OPTIONS={x:getattr(pymongo,x) for x in ['ASCENDING', 'DESCENDING', 'GEO2D', 'GEOHAYSTACK', 'GEOSPHERE', 'HASHED', 'TEXT']}
 
@@ -143,9 +143,13 @@ class FILE(COLLECTION):
     @property
     def file(self):
         if self._file is None:
-            self._file=self.buffer
-            self._file=self._collections._buffer_to_file(self._file)
+            buffer=self.buffer
+            props={'properties':self.properties} if self._collections._buffer_to_file.__code__.co_argcount>1 else {}
+            self._file=self._collections._buffer_to_file(buffer,**props)
         return self._file
+    @property
+    def obj(self):
+        return self.file
     def save_to(self,path):
         if os.path.isdir(path):
             filename=self.info.filename
@@ -160,10 +164,10 @@ class FILES(COLLECTIONS):
     def __init__(self,gridfs,extensions=None,path_processor=None,buffer_to_file=None,file_to_buffer=None,**kwargs):
         super().__init__(gridfs._GridFS__files,**kwargs)
         self._gridfs=gridfs
-        self._buffer_to_file=(lambda x: x) if buffer_to_file is None else buffer_to_file
+        self._buffer_to_file=buffer_to_obj if buffer_to_file is None else buffer_to_file
         self._extensions=extensions
         self._path_processor=path_processor
-        self._file_to_buffer=(lambda x: x) if file_to_buffer is None else file_to_buffer
+        self._file_to_buffer=obj_to_buffer if file_to_buffer is None else file_to_buffer
         self.child_class=FILE
 
     def update_or_create(self,files=None,query=None,*args,**kwargs):
@@ -215,11 +219,7 @@ class FILES(COLLECTIONS):
     def process_file(self,path):
         if self._extensions is not None and not any([path.lower().endswith(x) for x in self._extensions]):
             return None
-        with open(path,'rb') as f:
-            buffer = BytesIO(f.read())
-        filename=path.split(os.sep)[-1]
-        modified=os.path.getmtime(path)
-        return [buffer,{'filename':filename,'modified':modified}]
+        return obj_to_buffer(path)
 
     def process_path(self,path):
         buffers=[]
