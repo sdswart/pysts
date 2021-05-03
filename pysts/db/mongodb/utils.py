@@ -84,8 +84,8 @@ def obj_to_buffer(obj):
         info['obj_type']='obj'
     return buffer,info
 
-def buffer_to_obj(buffer,*args,**kwargs):
-    obj_type=kwargs['obj_type'] if 'obj_type' in kwargs else (args[0] if len(args)>0 else None)
+def buffer_to_obj(buffer,obj_type=None,**kwargs):
+    obj_type=obj_type if obj_type is not None else (kwargs['obj_type'] if 'obj_type' in kwargs else None)
     if obj_type=='stringio':
         obj=StringIOWrapper(buffer)
     elif obj_type=='obj':

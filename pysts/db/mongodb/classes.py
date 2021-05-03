@@ -144,8 +144,12 @@ class FILE(COLLECTION):
     def file(self):
         if self._file is None:
             buffer=self.buffer
-            props={'properties':self.properties} if self._collections._buffer_to_file.__code__.co_argcount>1 else {}
-            self._file=self._collections._buffer_to_file(buffer,**props)
+            props=self.properties
+            varnames=self._collections._buffer_to_file.__code__.co_varnames
+            send_props={key:val for key,val in props.items() if 'kwargs' in varnames or key in varnames}
+            if 'props' in varnames: send_props['props']=props
+            if 'properties' in varnames: send_props['properties']=props
+            self._file=self._collections._buffer_to_file(buffer,**send_props)
         return self._file
     @property
     def obj(self):
