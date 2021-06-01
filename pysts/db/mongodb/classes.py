@@ -42,7 +42,11 @@ class COLLECTION(object):
                     del self.properties[prop]
             return self._collections._db_collection.update_one({'_id':self._id},{'$unset':unsets})
         else:
-            res = self._collections._db_collection.delete_one({'_id':self._id})
+            _id=self._id
+            res = self._collections._db_collection.delete_one({'_id':_id})
+            if hasattr(self._collections,'_gridfs'):
+                res2=self._collections._gridfs._GridFS__chunks.delete_one({'files_id':_id})
+                res=(res,res2)
             del self
             return res
     def __delete__(self):
