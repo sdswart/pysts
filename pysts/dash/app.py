@@ -7,7 +7,8 @@ from flask import request
 
 from .components.base import *
 from . import components
-from utils import open_browser
+from .utils import open_browser
+from .config import Config
 
 def create_app(main_component,pathname_prefix='/',config=None):
     server = Flask(__name__)
@@ -25,14 +26,22 @@ def create_app(main_component,pathname_prefix='/',config=None):
     components.Download.register(app,prefix=pathname_prefix)
 
     # Create Dash Layout
-    main_app=main_component(config) if callable(main_component) else main_component
+    main_app=main_component if isinstance(main_component,components.Component) else main_component(config)
     app.layout=main_app.generate_layout()
     components.generate_all_callbacks(app,verbose=0)
     return app
 
 def start_app(main_component,pathname_prefix='/',debug=True, dev_tools_ui=True, dev_tools_props_check=True, host='0.0.0.0',port=5000,config=None):
     if config is None:
-        from config import config
+        config=Config()
     dashapp=create_app(main_component,pathname_prefix='/',config=config)
     app=dashapp.server
     dashapp.run_server(debug=debug, dev_tools_ui=dev_tools_ui, dev_tools_props_check=dev_tools_props_check, host=host,port=port)
+
+def start_basic_server():
+    #Start a basic dash server on port 5000
+    class Main(components.Component):
+        def layout(self):
+            self.full_layout=html.Div('Test Dash server')
+            return self.full_layout
+    start_app(Main())

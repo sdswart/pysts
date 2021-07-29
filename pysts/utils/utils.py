@@ -3,11 +3,25 @@ import re
 import os
 import logging
 import sys
+import psutil
 
 from . import functions
 
+def kill_proc_tree(pid, including_parent=True):
+    parent = psutil.Process(pid)
+    children = parent.children(recursive=True)
+    for child in children:
+        child.kill()
+    gone, still_alive = psutil.wait_procs(children, timeout=5)
+    if including_parent:
+        parent.kill()
+        parent.wait(5)
+
 def get_cwd():
     return os.path.abspath(os.getcwd())
+
+def get_base_path():
+    return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 #file_dir = os.path.dirname(os.path.realpath(__file__))
 def append_fcns(fcn,*fcns):

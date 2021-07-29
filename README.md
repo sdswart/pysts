@@ -10,7 +10,11 @@ This is a utility package composed of several modules.
 
 ## Tests
 
-Simply run: `pytest`
+If the module is installed through pip:
+`pytest`
+
+Run the tests from the local setup directory:
+`python -m pytest` 
 
 
 ## Code coverge
