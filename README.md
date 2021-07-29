@@ -19,7 +19,7 @@ Generate coverage report with: `py.test --cov=python_utils tests/`
 ####  script:
 ####    - pip install --user --upgrade setuptools wheel twine numpy
 ####    - python setup.py sdist bdist_wheel
-####    - python -m twine upload --repository-url https://pypi.gtl.fyi/ dist/pysts-0.2.0*
+####    - python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/pysts-0.4.0* -u USERNAME -p PASSWORD
 NOTE: Delete previous builds before uploading
 
 ####  Add pypi repo:
