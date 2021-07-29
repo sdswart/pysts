@@ -1,9 +1,12 @@
-[![Build Status](https://travis-ci.com/sdswart/pysts.svg?branch=master)](https://travis-ci.com/sdswart/pysts)          [![Coverage Status](https://coveralls.io/repos/github/sdswart/pysts/badge.svg?branch=dev)](https://coveralls.io/github/sdswart/pysts?branch=dev)          [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
+[![Download](https://img.shields.io/pypi/v/pysts?label=pysts)](https://pypi.org/project/pysts/)          [!License](https://img.shields.io/pypi/l/pysts)](https://pypi.org/project/pysts/)          [![Status](https://img.shields.io/pypi/status/pysts)](https://pypi.org/project/pysts/)          [![Build Status](https://travis-ci.com/sdswart/pysts.svg?branch=master)](https://travis-ci.com/sdswart/pysts)          [![Coverage Status](https://coveralls.io/repos/github/sdswart/pysts/badge.svg?branch=dev)](https://coveralls.io/github/sdswart/pysts?branch=dev)          [![Python](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
 
+# description
 
-# python-example-package
+This is a utility package composed of several modules.
 
-This is a starter repo for creating a new python package.
+# Installation
+
+`pip install pysts`
 
 ## Tests
 
