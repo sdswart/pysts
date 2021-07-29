@@ -4,6 +4,9 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("requirements.txt", "r") as f:
+    requirements = f.readlines()
+
 setup(
   name = 'pysts',         # How you named your package folder (MyLib)
   packages=find_packages(exclude=['tests*']),
@@ -16,7 +19,7 @@ setup(
   keywords = ['utilities',],   # Keywords that define your package best
   long_description=long_description,
   long_description_content_type="text/markdown",
-  install_requires=['numpy'],
+  install_requires=requirements,
   classifiers=[
       "Programming Language :: Python :: 3",
       "License :: OSI Approved :: MIT License",

@@ -145,8 +145,8 @@ class _query(orm.query.Query):
     def tables(self):
         if not hasattr(self,'_tables'):
             tables=[]
-            for entity in self._entities:
-                table=entity.column.table
+            for entity in self._raw_columns:
+                table=entity#.column.table
                 tables.append(table.original if isinstance(table,sql.sql.selectable.Alias) else table)
             self._tables=list(set(tables))
         return self._tables

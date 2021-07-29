@@ -2,4 +2,10 @@ setuptools
 wheel
 twine
 numpy
-bumpversion
+pandas
+plotly
+dash
+dash-core-components
+dash-bootstrap-components
+dash-html-components
+dash-table
