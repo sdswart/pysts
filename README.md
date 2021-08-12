@@ -14,7 +14,7 @@ If the module is installed through pip:
 `pytest`
 
 Run the tests from the local setup directory:
-`python -m pytest` 
+`python -m pytest`
 
 
 ## Code coverge
@@ -26,7 +26,7 @@ Generate coverage report with: `py.test --cov=python_utils tests/`
 ####  script:
 ####    - pip install --user --upgrade setuptools wheel twine numpy
 ####    - python setup.py sdist bdist_wheel
-####    - python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/pysts-0.4.0* -u USERNAME -p PASSWORD
+####    - python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/pysts-0.5.0* -u USERNAME -p PASSWORD
 NOTE: Delete previous builds before uploading
 
 ####  Add pypi repo:
