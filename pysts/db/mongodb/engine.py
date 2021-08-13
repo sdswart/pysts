@@ -3,6 +3,7 @@ import json
 from pymongo import UpdateMany
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
+from mongoengine.base.document import BaseDocument
 
 from pysts.utils.utils import create_logger
 logger = create_logger('MONGOENGINE')
@@ -112,3 +113,11 @@ class Fields(object):
             if prop.endswith('Field'):
                 setattr(self,prop,getattr(mongoengine,prop))
 fields=Fields()
+
+@property
+def properties(self):
+    props=json.loads(self.to_json())
+    props['_id']=props['_id']['$oid']
+    return props
+
+BaseDocument.properties=properties

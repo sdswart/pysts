@@ -100,6 +100,16 @@ class TestClass:
         docs=list(self.TestDoc.objects(name__in=uuids))
         assert len(docs)==0, f"All docs should have been deleted, but {len(docs)} were found!"
 
+    def test_properties(self):
+        if not hasattr(self,'TestDoc'):
+            self.test_document()
+        name=str(uuid.uuid4())
+        res=self.TestDoc(name=name,meta_var='hello').save()
+
+        doc=self.TestDoc.objects(name=name)[0]
+        props=doc.properties
+        assert props['name']==name and props['meta_var']=='hello', f'Properties for doc incorrect: {props}'
+
     # def test_drop_collection(self):
     #     self.TestDoc.drop_collection()
     #
