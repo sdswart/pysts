@@ -2,7 +2,7 @@ import os
 from io import BytesIO
 import gridfs
 import pymongo
-from pymongo import InsertOne, DeleteMany, ReplaceOne, UpdateOne, UpdateMany, IndexModel
+from pymongo import UpdateMany
 from .process import get_buffer_metas, df_to_buffer, buffer_to_df
 from .utils import get_client, to_list, obj_to_buffer, buffer_to_obj
 
