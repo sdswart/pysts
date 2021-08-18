@@ -5,7 +5,7 @@ from pymongo import UpdateMany
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
 from mongoengine.base.document import BaseDocument
-
+from pysts.utils.utils import to_json_serializable
 
 from pysts.utils.utils import create_logger
 logger = create_logger('MONGOENGINE')
@@ -89,7 +89,8 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
 def df_to_records(self,df,**metadata):
     df=df.reset_index()
     rows=df.to_dict(orient='records')
-    return [{**metadata,**data} for data in rows]
+    meta_rows=[{**metadata,**data} for data in rows]
+    return to_json_serializable(meta_rows)
 
 def store_df(self,df,**metadata):
     instances = [self._document(**x) for x in self.df_to_records(df,**metadata)]

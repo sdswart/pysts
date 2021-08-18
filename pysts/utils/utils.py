@@ -4,8 +4,24 @@ import os
 import logging
 import sys
 import psutil
+import numpy as np
 
 from . import functions
+
+def is_json_serializable(obj):
+    return type(obj) in [None,str,list,dict,int,float,bool]
+
+def to_json_serializable(obj):
+    if isinstance(obj,list):
+        return [to_json_serializable(x) for x in obj]
+    elif isinstance(obj,dict):
+        return {key:to_json_serializable(val) for key,val in obj.items()}
+    elif isinstance(obj,np.ndarray):
+        return obj.tolist()
+    elif is_json_serializable(obj):
+        return obj
+    else:
+        return str(obj)
 
 def kill_proc_tree(pid, including_parent=True):
     parent = psutil.Process(pid)
