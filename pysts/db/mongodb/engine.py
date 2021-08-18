@@ -28,7 +28,7 @@ def _get_updates(self,*args,**kwargs):
             updates[key]=val
     return updates
 
-def update_or_create(self,query=None,*args,files=None,**kwargs):
+def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs):
     if query is None: query=[]
     if not isinstance(query,list):
         query=[query]
@@ -66,18 +66,12 @@ def update_or_create(self,query=None,*args,files=None,**kwargs):
         ids = result.inserted_ids
 
     elif len(query)>0 and len(updates)>0: #Bulk write update many
-        ops=[];combined_query={}
+        ops=[];combined_query={'$or':[]}
+        if unique_keys is None:
+            unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
         for cur_query in query:
             ops.append(UpdateMany(cur_query, updates,upsert=True))
-            for key,val in cur_query.items():
-                if key in combined_query:
-                    if combined_query[key]!=val:
-                        if not isinstance(combined_query[key],dict) or '$in' not in combined_query[key]:
-                            combined_query[key]={'$in':[combined_query[key]]}
-                        if val not in combined_query[key]['$in']:
-                            combined_query[key]['$in'].append(val)
-                else:
-                    combined_query[key]=val
+            combined_query['$or'].append({key:val for key,val in cur_query.items() if key in unique_keys})
 
         result=db_collection.bulk_write(ops)
         logger.info(f'update_or_create: performing bulk_write with {len(ops)} ops produced result = {result.bulk_api_result}')
