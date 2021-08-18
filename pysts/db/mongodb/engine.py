@@ -120,4 +120,9 @@ def properties(self):
     props['_id']=props['_id']['$oid']
     return props
 
+@property
+def get_id(self):
+    return self.id
+
 BaseDocument.properties=properties
+BaseDocument._id = get_id
