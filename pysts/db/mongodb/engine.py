@@ -76,7 +76,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             combined_query['$or'].append({key:val for key,val in cur_query.items() if key in unique_keys})
 
         result=db_collection.bulk_write(ops)
-        logger.info(f'update_or_create: performing bulk_write with {len(ops)} ops produced result = {result.bulk_api_result}')
+        logger.info(f'update_or_create: performing bulk_write with {len(ops)} ops produced result = {str(result.bulk_api_result)[:50]}')
 
         ids=[x['_id'] for x in db_collection.find(combined_query,projection='_id')]
     else:
