@@ -53,9 +53,7 @@ def create_logger(name,level='INFO',format='[%(asctime)s] [%(name)s] [%(levelnam
     logger = logging.getLogger(name)
 
     if not logger_exists or change_if_exists:
-        formatter = logging.Formatter(format)
-        logger.setFormatter(formatter)
-
+        logging.basicConfig(format=format)
         level=getattr(logging,level)
         logger.setLevel(level)
 
@@ -63,6 +61,7 @@ def create_logger(name,level='INFO',format='[%(asctime)s] [%(name)s] [%(levelnam
             ch = logging.StreamHandler(sys.stdout)
             if level is not None:
                 ch.setLevel(level)
+            formatter = logging.Formatter(format)
             ch.setFormatter(formatter)
             logger.addHandler(ch)
     return logger
