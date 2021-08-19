@@ -78,7 +78,12 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
         for cur_query in query:
             cur_query_unique_keys={key:val for key,val in cur_query.items() if key in unique_keys}
-            cur_updates={**updates,**{key:val for key,val in cur_query.items() if key not in unique_keys}}
+            set_updates = {'$set':{key:val for key,val in cur_query.items() if key not in unique_keys}}
+
+            if len(set_updates)>0 and '$set' in updates:
+                set_updates['$set']={**updates['$set'],**set_updates'$set'}
+
+            cur_updates={**{key:val for key,val in updates.items() if key!='$set'},**set_updates}
             ops.append(UpdateMany(cur_query_unique_keys, cur_updates,upsert=True))
             combined_query['$or'].append(cur_query_unique_keys)
 
