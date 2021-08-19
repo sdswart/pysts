@@ -49,15 +49,14 @@ def append_fcns(fcn,*fcns):
 
 def create_logger(name,level='INFO',add_stdout_handler=True):
     logger = logging.getLogger(name)
-    ch = logging.StreamHandler(sys.stdout)
     level=getattr(logging,level)
     logger.setLevel(level)
 
-    if add_stdout_handler:
-        ch.setLevel(level)
-        formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
+    ch = logging.StreamHandler() #logging.StreamHandler(sys.stdout)
+    ch.setLevel(level)
+    formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
     return logger
 
 def create_uuid(hex=True):
