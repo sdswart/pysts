@@ -9,8 +9,8 @@ from pysts.utils.utils import to_json_serializable
 from datetime import datetime
 
 from pysts.utils.utils import create_logger
-logger = create_logger('MONGOENGINE')
-
+logger = create_logger(__name__)
+logger.info(f'Mongo engine: logging as name: {__name__}')
 connect=mongoengine.connect
 Document=mongoengine.DynamicDocument
 
