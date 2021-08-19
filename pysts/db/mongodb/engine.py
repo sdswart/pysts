@@ -81,7 +81,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             set_updates = {'$set':{key:val for key,val in cur_query.items() if key not in unique_keys}}
 
             if len(set_updates)>0 and '$set' in updates:
-                set_updates['$set']={**updates['$set'],**set_updates'$set'}
+                set_updates['$set']={**updates['$set'],**set_updates['$set']}
 
             cur_updates={**{key:val for key,val in updates.items() if key!='$set'},**set_updates}
             ops.append(UpdateMany(cur_query_unique_keys, cur_updates,upsert=True))
