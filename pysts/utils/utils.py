@@ -47,16 +47,24 @@ def append_fcns(fcn,*fcns):
             return False
     return rtn
 
-def create_logger(name,level='INFO',add_stdout_handler=True):
+def create_logger(name,level='INFO',format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+                change_if_exists=False,add_stdout_handler=False):
+    logger_exists = name in logging.getLogger().manager.loggerDict
     logger = logging.getLogger(name)
-    level=getattr(logging,level)
-    logger.setLevel(level)
 
-    ch = logging.StreamHandler() #logging.StreamHandler(sys.stdout)
-    ch.setLevel(level)
-    formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    if not logger_exists or change_if_exists:
+        formatter = logging.Formatter(format)
+        logger.setFormatter(formatter)
+
+        level=getattr(logging,level)
+        logger.setLevel(level)
+
+        if add_stdout_handler:
+            ch = logging.StreamHandler(sys.stdout)
+            if level is not None:
+                ch.setLevel(level)
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
     return logger
 
 def create_uuid(hex=True):
