@@ -76,13 +76,18 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
         ops=[];combined_query={'$or':[]}
         if unique_keys is None:
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
-        for cur_query in query:
+
+        deleted_count=0
+        for query_i, cur_query in enumerate(query):
             ops.append({**cur_query,**setq})
             cur_query_unique_keys={key:val for key,val in cur_query.items() if key in unique_keys}
             combined_query['$or'].append(cur_query_unique_keys)
+            if (query_i+1)%1000 == 0:
+                deleted_count += db_collection.delete_many(combined_query).deleted_count
+                combined_query={'$or':[]}
 
-        deleted=db_collection.delete_many(combined_query)
-        logger.debug(f'update_or_create: Deleted {deleted.deleted_count} documents')
+        deleted_count += db_collection.delete_many(combined_query).deleted_count
+        logger.debug(f'update_or_create: Deleted {deleted_count} documents')
         result=db_collection.insert_many(ops)
 
         ids=result.inserted_ids
