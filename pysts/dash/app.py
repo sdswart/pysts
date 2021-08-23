@@ -34,15 +34,17 @@ def create_app(main_component,pathname_prefix='/',config=None,static_path=None,s
     if static_path is not None:
         @app.server.route('{}<file_path>'.format(static_route))
         def serve_static(file_path):
-            image_name = '{}.png'.format(image_path)
             assert os.path.isfile(os.path.join(static_path,file_path)), f'The file {file_path} could not be found'
             return flask.send_from_directory(static_path, file_path)
     return app
 
-def start_app(main_component,pathname_prefix='/',debug=True, dev_tools_ui=True, dev_tools_props_check=True, host='0.0.0.0',port=5000,config=None):
+def start_app(main_component=None,dashapp=None,pathname_prefix='/',debug=True, dev_tools_ui=True, dev_tools_props_check=True, host='0.0.0.0',port=5000,config=None,
+            static_path=None,static_route='/static/'):
+    assert main_component is not None and app is not None, 'main_component or dashapp is required!'
     if config is None:
         config=Config()
-    dashapp=create_app(main_component,pathname_prefix='/',config=config)
+    if dashapp is None:
+        dashapp=create_app(main_component,pathname_prefix='/',config=config,static_path=static_path,static_route=static_route)
     app=dashapp.server
     dashapp.run_server(debug=debug, dev_tools_ui=dev_tools_ui, dev_tools_props_check=dev_tools_props_check, host=host,port=port)
 

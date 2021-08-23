@@ -103,8 +103,8 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
 
 def df_to_records(self,df,keep_index=False,**metadata):
     start_t = datetime.now()
-    if keep_index and not 'index' in df.columns:
-        df=df.reset_index()
+    if not 'index' in df.columns:
+        df=df.reset_index(drop=not keep_index)
     rows=df.to_dict(orient='records')
     meta_rows=[{**metadata,**data} for data in rows]
     diff_t = int((datetime.now() - start_t).total_seconds())
