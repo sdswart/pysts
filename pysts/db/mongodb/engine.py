@@ -86,7 +86,8 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
                 deleted_count += db_collection.delete_many(combined_query).deleted_count
                 combined_query={'$or':[]}
 
-        deleted_count += db_collection.delete_many(combined_query).deleted_count
+        if len(combined_query['$or'])>0:
+            deleted_count += db_collection.delete_many(combined_query).deleted_count
         logger.debug(f'update_or_create: Deleted {deleted_count} documents')
         result=db_collection.insert_many(ops)
 
@@ -100,18 +101,19 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
     logger.debug(f'update_or_create: Performing {msg} with {len(query)} queries and {len(updates)} updates took {diff_t} seconds')
     return res
 
-def df_to_records(self,df,**metadata):
+def df_to_records(self,df,keep_index=False,**metadata):
     start_t = datetime.now()
-    df=df.reset_index()
+    if keep_index and not 'index' in df.columns:
+        df=df.reset_index()
     rows=df.to_dict(orient='records')
     meta_rows=[{**metadata,**data} for data in rows]
     diff_t = int((datetime.now() - start_t).total_seconds())
     logger.debug(f'df_to_records: Converting df with shape ({df.shape}) to records took {diff_t} seconds')
     return to_json_serializable(meta_rows)
 
-def store_df(self,df,**metadata):
+def store_df(self,df,keep_index=False,**metadata):
     start_t = datetime.now()
-    instances = [self._document(**x) for x in self.df_to_records(df,**metadata)]
+    instances = [self._document(**x) for x in self.df_to_records(df,keep_index=keep_index,**metadata)]
     res=self._document.objects.insert(instances)
     diff_t = int((datetime.now() - start_t).total_seconds())
     logger.debug(f'store_df: Storing df with shape ({df.shape}) took {diff_t} seconds')
