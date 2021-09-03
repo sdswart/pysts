@@ -29,7 +29,7 @@ def delete_dups(doc,unique_keys):
     ]
     duplicates=doc.objects.aggregate(pipeline)
     ids=[x for duplicate in duplicates for x in duplicate['name'][:-1]]
-    q=MyDoc.objects(id__in=ids)
+    q=doc.objects(id__in=ids)
     return q.delete()
 
 #Add to_df to querysets (also for property .file)
