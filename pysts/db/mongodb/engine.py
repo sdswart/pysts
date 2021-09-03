@@ -29,7 +29,7 @@ def delete_dups(doc,unique_keys,keep_ids=None):
         { "$match": { "count": { "$gt": 1 } } },
         {"$project": {"name" : "$uniqueIds", "_id" : 0} }
     ]
-    duplicates=doc.objects.aggregate(pipeline)
+    duplicates=doc.objects.aggregate(pipeline,allowDiskUse=True)
     get_del_ids=lambda ids: del_ids[:-1] if len(del_ids:=[x for x in ids if x not in keep_ids])>1 else del_ids
     ids=[x for duplicate in duplicates for x in get_del_ids(duplicate['name'])]
     q=doc.objects(id__in=ids)
