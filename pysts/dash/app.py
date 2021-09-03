@@ -1,23 +1,29 @@
 import dash
-from flask import Flask
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import os
-from flask import request
+import posixpath
+import flask
+request=flask.request
+Flask=flask.Flask
 
 from .components.base import *
 from . import components
 from .utils import open_browser
 from .config import Config
 
-def create_app(main_component,pathname_prefix='/',config=None,static_path=None,static_route='/static/'):
+def create_app(main_component,pathname_prefix='/',config=None,static_path=None,static_route='/static/',external_stylesheets=None,external_scripts=None):
     server = Flask(__name__)
     SECRET_KEY=config.SECRET_KEY if config is not None else 'adsfyiu3S3!jE%$axbjhwa195sxc@S'
     server.secret_key=SECRET_KEY
+    if external_stylesheets is None:
+        external_stylesheets=[]
+    external_stylesheets.append(dbc.themes.BOOTSTRAP)
 
     app = dash.Dash(server=server,
         url_base_pathname=pathname_prefix,
-        external_stylesheets=[dbc.themes.BOOTSTRAP],
+        external_stylesheets=external_stylesheets,
+        external_scripts=external_scripts,
         suppress_callback_exceptions=True)
     app.scripts.config.serve_locally=True
     app.css.config.serve_locally=True
@@ -32,19 +38,25 @@ def create_app(main_component,pathname_prefix='/',config=None,static_path=None,s
 
     #Serve static files
     if static_path is not None:
-        @app.server.route('{}<file_path>'.format(static_route))
-        def serve_static(file_path):
-            assert os.path.isfile(os.path.join(static_path,file_path)), f'The file {file_path} could not be found'
-            return flask.send_from_directory(static_path, file_path)
+        # for root, fols, files in os.walk(static_path):
+        #     url_path = posixpath.join(static_route, *[x for x in os.path.relpath(root,static_path).split(os.sep) if not x.startswith('.')])
+        @app.server.route('{}<path:file_path>/<filename>'.format(static_route))
+        def serve_static(file_path,filename):
+            file_path=os.path.join(file_path,filename).replace('/',os.sep)
+            fullpath=os.path.join(static_path,file_path)
+            assert os.path.isfile(fullpath), f'The file {file_path} could not be found'
+            path,file=os.path.split(fullpath)
+            return flask.send_from_directory(path,file)
     return app
 
 def start_app(main_component=None,dashapp=None,pathname_prefix='/',debug=True, dev_tools_ui=True, dev_tools_props_check=True, host='0.0.0.0',port=5000,config=None,
-            static_path=None,static_route='/static/'):
+            static_path=None,static_route='/static/',external_stylesheets=None,external_scripts=None):
     assert main_component is not None and app is not None, 'main_component or dashapp is required!'
     if config is None:
         config=Config()
     if dashapp is None:
-        dashapp=create_app(main_component,pathname_prefix='/',config=config,static_path=static_path,static_route=static_route)
+        dashapp=create_app(main_component,pathname_prefix='/',config=config,static_path=static_path,
+                        static_route=static_route,external_stylesheets=external_stylesheets,external_scripts=external_scripts)
     app=dashapp.server
     dashapp.run_server(debug=debug, dev_tools_ui=dev_tools_ui, dev_tools_props_check=dev_tools_props_check, host=host,port=port)
 

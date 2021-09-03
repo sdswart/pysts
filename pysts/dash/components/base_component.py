@@ -103,6 +103,7 @@ class Item(object):
 
 class Component(object):
     properties=callbacks=_id=None
+    _generated_layout=None
     def class_instances(self):
         instances=type(self).get_instances()
         if self.__class__.__name__ not in instances:
@@ -163,19 +164,27 @@ class Component(object):
                 else:
                     layout.children=get_layout(children)
     def generate_layout(self,layout=None):
+        record_layout=False
         if layout is None:
-            if isinstance(self.layout,Item):
-                layout=self.layout.obj
-            elif callable(self.layout):
-                layout=self.layout()
-                if isinstance(layout,Item):
-                    layout=layout.obj
+            if self._generated_layout is not None:
+                layout=self._generated_layout
             else:
-                layout=self.layout
+                record_layout=True
+                if isinstance(self.layout,Item):
+                    layout=self.layout.obj
+                elif callable(self.layout):
+                    layout=self.layout()
+                    if isinstance(layout,Item):
+                        layout=layout.obj
+                else:
+                    layout=self.layout
 
         self.process_layout_children(layout)
+        if record_layout:
+            self._generated_layout=layout
 
         return layout
+
     @classmethod
     def get_instances(cls):
         if not hasattr(cls, 'instances'):

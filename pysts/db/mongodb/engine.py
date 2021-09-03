@@ -38,8 +38,10 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
 
     #get updates
     updates=self._get_updates(*args,**kwargs)
+    logger.debug(f'update_or_create: Starting with query of length {len(query)}, {len(updates)} updates, and {"no" if files is None else (len(files) if type(files) in [list,tuple] else 0)} files')
 
     #Process dataframe tables (files)
+    last_diff_t=0
     if files is not None:
         if type(files) not in [list,tuple]:
             files=[files]
@@ -51,6 +53,8 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             assert isinstance(file,pd.DataFrame), "Files should either be a list of dataframes or a list of [(DataFrame,{metadata}),...]"
             rows=self.df_to_records(file,**cur_meta)
             query.extend(rows)
+        last_diff_t = int((datetime.now() - start_t).total_seconds())
+        logger.debug(f'update_or_create: Updating the query with {len(files)} dataframes with shapes: {", ".join([str(x.shape) for x in files])} took {last_diff_t} seconds')
 
     #Create operation
     db_collection=self._document._get_collection()
@@ -74,31 +78,40 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
     elif len(query)>0 and len(updates)==1 and '$set' in updates: #Bulk insert many
         setq=updates['$set']
         ops=[];combined_query={'$or':[]}
+        result_ids=[]
         if unique_keys is None:
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
 
         deleted_count=0
+        total_queries=len(query)
         for query_i, cur_query in enumerate(query):
             ops.append({**cur_query,**setq})
             cur_query_unique_keys={key:val for key,val in cur_query.items() if key in unique_keys}
-            combined_query['$or'].append(cur_query_unique_keys)
+            if len(cur_query_unique_keys)>0:
+                combined_query['$or'].append(cur_query_unique_keys)
             if (query_i+1)%1000 == 0:
                 deleted_count += db_collection.delete_many(combined_query).deleted_count
-                combined_query={'$or':[]}
+                result=db_collection.insert_many(ops)
+                result_ids.extend(result.inserted_ids)
+                ops=[];combined_query={'$or':[]}
+                diff_t = int((datetime.now() - start_t).total_seconds())
+                logger.debug(f'update_or_create: Iteration {query_i+1} of {total_queries} for insert_many (with updates): Total seconds = {diff_t-last_diff_t}')
 
         if len(combined_query['$or'])>0:
             deleted_count += db_collection.delete_many(combined_query).deleted_count
         logger.debug(f'update_or_create: Deleted {deleted_count} documents')
-        result=db_collection.insert_many(ops)
+        if len(ops)>0:
+            result=db_collection.insert_many(ops)
+            result_ids.extend(result.inserted_ids)
 
-        ids=result.inserted_ids
+        ids=result_ids
         msg='insert_many (with updates)'
     else:
         raise Exception(f'Nothing to update or create: query={query}; and updates={updates}')
 
     res=self._document.objects(id__in=ids)
     diff_t = int((datetime.now() - start_t).total_seconds())
-    logger.debug(f'update_or_create: Performing {msg} with {len(query)} queries and {len(updates)} updates took {diff_t} seconds')
+    logger.debug(f'update_or_create: Performing {msg} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
     return res
 
 def df_to_records(self,df,keep_index=False,**metadata):

@@ -17,7 +17,7 @@ Run the tests from the local setup directory:
 `python -m pytest`
 
 
-## Code coverge
+## Code coverage
 
 Generate coverage report with: `py.test --cov=python_utils tests/`
 
