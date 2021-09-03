@@ -102,13 +102,13 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
         if unique_keys is None:
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
 
-        total_queries=len(query)
-        ops=[{**cur_query,**setq} for cur_query in query]
+        for cur_query in query:
+            cur_query.update(setq)
 
         ids=[]
         if len(ops)>0:
             #Insert new docs
-            result=db_collection.insert_many(ops)
+            result=db_collection.insert_many(query)
             ids=result.inserted_ids
             #delete duplicates
             if len(unique_keys)>0:
@@ -130,10 +130,11 @@ def df_to_records(self,df,keep_index=False,**metadata):
     if not 'index' in df.columns:
         df=df.reset_index(drop=not keep_index)
     rows=df.to_dict(orient='records')
-    meta_rows=[{**metadata,**data} for data in rows]
+    for row in rows:
+        row.update(metadata)
     diff_t = int((datetime.now() - start_t).total_seconds())
     logger.debug(f'df_to_records: Converting df with shape ({df.shape}) to records took {diff_t} seconds')
-    return to_json_serializable(meta_rows)
+    return to_json_serializable(rows)
 
 def store_df(self,df,keep_index=False,**metadata):
     start_t = datetime.now()
