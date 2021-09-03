@@ -75,6 +75,8 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
                 file=file[0]
             assert isinstance(file,pd.DataFrame), "Files should either be a list of dataframes or a list of [(DataFrame,{metadata}),...]"
 
+            total_rows=file.shape[0]
+            prev_seconds=0
             while file.shape[0]>0:
                 num_records_allowed=max_queries-len(query)
                 rows=self.df_to_records(file.iloc[:num_records_allowed],**cur_meta)
@@ -83,6 +85,10 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
                 file=file.iloc[num_records_allowed:]
                 if len(query)>=max_queries:
                     ids.extend(self.update_or_create(query=query,unique_keys=unique_keys,max_queries=max_queries,return_only_ids=True,**updates))
+                    diff_seconds = (datetime.now() - start_t).total_seconds()
+                    seconds_per_row=(diff_seconds-prev_seconds)/len(query)
+                    logger.debug(f'update_or_create: Calling update_or_create on {len(rows)} rows out of {total_rows}: {((total_rows-file.shape[0])/total_rows):.1%} complete with {seconds_per_row*file.shape[0]:.1f} seconds remaining...')
+                    prev_seconds=diff_seconds
                     del rows
                     query.clear()
         del files
