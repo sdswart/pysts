@@ -61,7 +61,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
 
     #get updates
     updates=self._get_updates(*args,**kwargs)
-    logger.debug(f'update_or_create: Starting with query of length {len(query)}, {len(updates)} updates, and {"no" if files is None else (len(files) if type(files) in [list,tuple] else 0)} files')
+    logger.debug(f'update_or_create: Starting with query of length {len(query)}, {len(updates)} updates, and {"no" if files is None else (len(files) if type(files) in [list,tuple] else 1)} files')
 
     #Process dataframe tables (files)
     last_diff_t=0
@@ -80,9 +80,9 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
                 rows=self.df_to_records(file.iloc[:num_records_allowed],**cur_meta)
                 query.extend(rows)
 
+                file=file.iloc[num_records_allowed:]
                 if len(query)>=max_queries:
                     ids.extend(self.update_or_create(query=query,unique_keys=unique_keys,max_queries=max_queries,return_only_ids=True,**updates))
-                    file=file.iloc[num_records_allowed:]
                     del rows
                     query.clear()
         del files
