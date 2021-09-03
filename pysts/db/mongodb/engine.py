@@ -13,7 +13,9 @@ logger = create_logger(__name__) #pysts.db.mongodb.engine
 connect=mongoengine.connect
 Document=mongoengine.DynamicDocument
 
-def delete_dups(doc,unique_keys):
+def delete_dups(doc,unique_keys,keep_ids=None):
+    if keep_ids is None:
+        keep_ids=[]
     if isinstance(unique_keys,str):
         unique_keys=[unique_keys]
     pipeline=[
@@ -28,7 +30,8 @@ def delete_dups(doc,unique_keys):
         {"$project": {"name" : "$uniqueIds", "_id" : 0} }
     ]
     duplicates=doc.objects.aggregate(pipeline)
-    ids=[x for duplicate in duplicates for x in duplicate['name'][:-1]]
+    get_del_ids=lambda ids: del_ids[:-1] if len(del_ids:=[x for x in ids if x not in keep_ids])>1 else del_ids
+    ids=[x for duplicate in duplicates for x in get_del_ids(duplicate['name'])]
     q=doc.objects(id__in=ids)
     return q.delete()
 
@@ -109,9 +112,9 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             ids=result.inserted_ids
             #delete duplicates
             if len(unique_keys)>0:
-                deleted_count=delete_dups(self._document,unique_keys)
+                deleted_count=delete_dups(self._document,unique_keys,keep_ids=ids)
                 if deleted_count>0:
-                    logger.debug(f'update_or_create: During insert_many (with updates) - deleted {deleted_count} duplicate documents based on the keys: {unique_keys}')
+                    logger.debug(f'update_or_create: During insert_many (with updates) - deleted {deleted_count} duplicate documents from {self._document} based on the keys: {unique_keys}')
 
         msg='insert_many (with updates)'
     else:
@@ -119,7 +122,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
 
     res=self._document.objects(id__in=ids)
     diff_t = int((datetime.now() - start_t).total_seconds())
-    logger.debug(f'update_or_create: Performing {msg} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
+    logger.debug(f'update_or_create: Performing {msg} on {self._document} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
     return res
 
 def df_to_records(self,df,keep_index=False,**metadata):
