@@ -90,12 +90,16 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             if len(cur_query_unique_keys)>0:
                 combined_query['$or'].append(cur_query_unique_keys)
             if (query_i+1)%1000 == 0:
+                diff_t = int((datetime.now() - start_t).total_seconds())
+                logger.debug(f'update_or_create: Iteration {query_i+1} of {total_queries} for insert_many (with updates) [START]: Total seconds = {diff_t-last_diff_t}')
                 deleted_count += db_collection.delete_many(combined_query).deleted_count
+                diff_t = int((datetime.now() - start_t).total_seconds())
+                logger.debug(f'update_or_create: Iteration {query_i+1} of {total_queries} for insert_many (with updates) [DELETE]: Total seconds = {diff_t-last_diff_t}')
                 result=db_collection.insert_many(ops)
                 result_ids.extend(result.inserted_ids)
                 ops=[];combined_query={'$or':[]}
                 diff_t = int((datetime.now() - start_t).total_seconds())
-                logger.debug(f'update_or_create: Iteration {query_i+1} of {total_queries} for insert_many (with updates): Total seconds = {diff_t-last_diff_t}')
+                logger.debug(f'update_or_create: Iteration {query_i+1} of {total_queries} for insert_many (with updates) [COMPLETE]: Total seconds = {diff_t-last_diff_t}')
 
         if len(combined_query['$or'])>0:
             deleted_count += db_collection.delete_many(combined_query).deleted_count
