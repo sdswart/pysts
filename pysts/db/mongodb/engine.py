@@ -52,8 +52,9 @@ def _get_updates(self,*args,**kwargs):
             updates[key]=val
     return updates
 
-def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs):
+def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queries=1000,return_only_ids=False,**kwargs):
     start_t = datetime.now()
+    ids=[]
     if query is None: query=[]
     if not isinstance(query,list):
         query=[query]
@@ -73,10 +74,22 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
                 cur_meta=file[1]
                 file=file[0]
             assert isinstance(file,pd.DataFrame), "Files should either be a list of dataframes or a list of [(DataFrame,{metadata}),...]"
-            rows=self.df_to_records(file,**cur_meta)
-            query.extend(rows)
-        last_diff_t = int((datetime.now() - start_t).total_seconds())
-        logger.debug(f'update_or_create: Updating the query with {len(files)} dataframes with shapes: {", ".join([str(x.shape) for x in files])} took {last_diff_t} seconds')
+
+            while file.shape[0]>0:
+                num_records_allowed=max_queries-len(query)
+                rows=self.df_to_records(file.iloc[:num_records_allowed],**cur_meta)
+                query.extend(rows)
+
+                if len(query)>=max_queries:
+                    ids.extend(self.update_or_create(query=query,unique_keys=unique_keys,max_queries=max_queries,return_only_ids=True,**updates))
+                    file=file.iloc[num_records_allowed:]
+                    del rows
+                    query.clear()
+        del files
+        #If all query items done, then return
+        if len(query)==0:
+            res=ids if return_only_ids else self._document.objects(id__in=ids)
+            return res
 
     #Create operation
     db_collection=self._document._get_collection()
@@ -84,17 +97,17 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
     if len(query)==0 and len(updates)>0:
         if '$set' in updates and len(updates)==1: #Only insert one
             result = db_collection.insert_one(updates['$set'])
-            ids = [result.inserted_id]
+            ids.append(result.inserted_id)
             msg='insert_one'
         else:
             q=updates.pop('$set') if '$set' in updates else {} #Update many based on $set as the query or update everything
             db_collection.update_many(q,updates,upsert=True);
-            ids = [x['_id'] for x in db_collection.find(q,projection='_id')]
+            ids.extend([x['_id'] for x in db_collection.find(q,projection='_id')])
             msg='update_many'
 
     elif len(query)>0 and len(updates)==0: #Insert many
         result = db_collection.insert_many(query)
-        ids = result.inserted_ids
+        ids.extend(result.inserted_ids)
         msg='insert_many'
 
     elif len(query)>0 and len(updates)==1 and '$set' in updates: #Bulk insert many
@@ -105,11 +118,10 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
         for cur_query in query:
             cur_query.update(setq)
 
-        ids=[]
         if len(query)>0:
             #Insert new docs
             result=db_collection.insert_many(query)
-            ids=result.inserted_ids
+            ids.extend(result.inserted_ids)
             #delete duplicates
             if len(unique_keys)>0:
                 deleted_count=delete_dups(self._document,unique_keys,keep_ids=ids)
@@ -120,7 +132,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
     else:
         raise Exception(f'Nothing to update or create: query={query}; and updates={updates}')
 
-    res=self._document.objects(id__in=ids)
+    res=ids if return_only_ids else self._document.objects(id__in=ids)
     diff_t = int((datetime.now() - start_t).total_seconds())
     logger.debug(f'update_or_create: Performing {msg} on {self._document} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
     return res
