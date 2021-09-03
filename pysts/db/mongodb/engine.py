@@ -106,7 +106,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,**kwargs)
             cur_query.update(setq)
 
         ids=[]
-        if len(ops)>0:
+        if len(query)>0:
             #Insert new docs
             result=db_collection.insert_many(query)
             ids=result.inserted_ids
