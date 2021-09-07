@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import json
 from pymongo import UpdateMany
+from pymongo.command_cursor import CommandCursor
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
 from mongoengine.base.document import BaseDocument
@@ -36,9 +37,13 @@ def delete_dups(doc,unique_keys,keep_ids=None):
     return q.delete()
 
 #Add to_df to querysets (also for property .file)
-def to_df(self,exclude=None):
-    if exclude is None: exclude=['_id']
-    return pd.DataFrame.from_records(json.loads(self.to_json()),exclude=exclude)
+def command_cursor_to_df(self,**kwargs):
+    return pd.DataFrame.from_records(self,**kwargs)
+CommandCursor.to_df=command_cursor_to_df
+
+#Add to_df to querysets (also for property .file)
+def to_df(self,**kwargs):
+    return pd.DataFrame.from_records(json.loads(self.to_json()),**kwargs)
 
 def _get_updates(self,*args,**kwargs):
     kwargs.update(dict(pair for d in args if isinstance(d,dict) for pair in d.items()))
@@ -68,6 +73,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
     if files is not None:
         if type(files) not in [list,tuple]:
             files=[files]
+        prev_seconds=0
         for file in files:
             cur_meta={}
             if type(file) in [list,tuple] and len(file)==2 and isinstance(file[0],pd.DataFrame) and isinstance(file[1],dict):
@@ -76,7 +82,6 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
             assert isinstance(file,pd.DataFrame), "Files should either be a list of dataframes or a list of [(DataFrame,{metadata}),...]"
 
             total_rows=file.shape[0]
-            prev_seconds=0
             while file.shape[0]>0:
                 num_records_allowed=max_queries-len(query)
                 rows=self.df_to_records(file.iloc[:num_records_allowed],**cur_meta)
