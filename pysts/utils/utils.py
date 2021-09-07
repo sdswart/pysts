@@ -5,11 +5,12 @@ import logging
 import sys
 import psutil
 import numpy as np
+import datetime
 
 from . import functions
 
 def is_json_serializable(obj):
-    return type(obj) in [None,str,list,dict,int,float,bool]
+    return type(obj) in [None,str,list,dict,int,float,bool,complex,datetime.date,datetime.datetime,datetime.timedelta]
 
 def to_json_serializable(obj):
     if isinstance(obj,list):
@@ -18,6 +19,8 @@ def to_json_serializable(obj):
         return {key:to_json_serializable(val) for key,val in obj.items()}
     elif isinstance(obj,np.ndarray):
         return obj.tolist()
+    elif isinstance(obj,np.generic):
+        return obj.item()
     elif is_json_serializable(obj):
         return obj
     else:
