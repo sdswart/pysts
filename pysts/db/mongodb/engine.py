@@ -148,7 +148,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
                 { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
                 {'$project':{'_id':0}},
             ])
-            ids.extend(cursor[0]['ids'])
+            ids.extend(list(cursor)[0]['ids'])
             #Insert new docs
             # result=db_collection.insert_many(query)
             # ids.extend(result.inserted_ids)
