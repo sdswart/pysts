@@ -108,8 +108,7 @@ def update_or_create(self,query=None,*args,files=None,update=None,unique_keys=No
     db_collection=self._document._get_collection()
     if len(query)==0:
         query=[{}]
-
-    print(f'QUERY = {query}\nUPDATES = {updates}')
+        
     assert len(query)>0 or len(updates)>0, f'Nothing to update or create: query={query}; updates={updates}'
 
     base_updates={key:val for key,val in updates.items() if key!='$set'}
