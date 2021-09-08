@@ -6,6 +6,7 @@ import sys
 import psutil
 import numpy as np
 import datetime
+import pandas as pd
 
 from . import functions
 
@@ -21,6 +22,8 @@ def to_json_serializable(obj):
         return obj.tolist()
     elif isinstance(obj,np.generic):
         return obj.item()
+    elif isinstance(obj,pd._libs.tslibs.timestamps.Timestamp):
+        return obj.to_pydatetime()
     elif is_json_serializable(obj):
         return obj
     else:
