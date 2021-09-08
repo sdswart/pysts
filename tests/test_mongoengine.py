@@ -57,7 +57,7 @@ class TestClass:
         assert len(res)==2, f"update_or_create returned {len(res)} docs but should have been 2!"
 
         docs=list(self.TestDoc.objects(name__in=[name,name2]))
-        assert len(docs)==2, f"Finding the 2 docs returned {len(res)} docs!"
+        assert len(docs)==2, f"Finding the 2 docs returned {len(docs)} docs!"
 
         assert docs[0].meta_var=='hello' and docs[1].meta_var=='hello', "The meta_var for the two docs were not changed to 'hello'!"
 

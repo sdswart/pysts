@@ -109,22 +109,27 @@ def update_or_create(self,query=None,*args,files=None,update=None,unique_keys=No
     if len(query)==0:
         query=[{}]
 
+    print(f'QUERY = {query}\nUPDATES = {updates}')
     assert len(query)>0 or len(updates)>0, f'Nothing to update or create: query={query}; updates={updates}'
 
     base_updates={key:val for key,val in updates.items() if key!='$set'}
     ops=[]; combined_query=[]
     for cur_query in query:
+        cur_unique_keys=unique_keys if unique_keys is not None and len(unique_keys)>0 else [key for key,val in cur_query.items() if type(val) not in [list,tuple,np.ndarray]]
+        require_unique_keys=len(cur_unique_keys)==0
         set_update={}
         if '$set' in updates:
             for key,val in updates['$set'].items():
                 if key not in cur_query:
+                    if require_unique_keys and type(val) not in [list,tuple,np.ndarray]:
+                        cur_unique_keys.append(key)
                     cur_query[key]=val
                 else:
                     set_update[key]=val
 
         cur_filter={}
         for key,val in cur_query.items():
-            if (unique_keys is None and type(val) not in [list,tuple,np.ndarray]) or key in unique_keys:
+            if key in cur_unique_keys:
                 cur_filter[key]=val
             else:
                 set_update[key]=val
