@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
-from pymongo import UpdateMany, ReplaceOne
+from pymongo import UpdateMany, ReplaceOne, UpdateOne
 from pymongo.command_cursor import CommandCursor
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
@@ -57,7 +57,7 @@ def _get_updates(self,*args,**kwargs):
             updates[key]=val
     return updates
 
-def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queries=1000,return_only_ids=False,**kwargs):
+def update_or_create(self,query=None,*args,files=None,update=None,unique_keys=None,max_queries=1000,return_only_ids=False,**kwargs):
     start_t = datetime.now()
     ids=[]
     if query is None: query=[]
@@ -65,7 +65,9 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
         query=[query]
 
     #get updates
-    updates=self._get_updates(*args,**kwargs)
+    if update is None:
+        update={}
+    updates=self._get_updates(*args,**kwargs,**update)
     logger.debug(f'update_or_create: Starting with query of length {len(query)}, {len(updates)} updates, and {"no" if files is None else (len(files) if type(files) in [list,tuple] else 1)} files')
 
     #Process dataframe tables (files)
@@ -104,67 +106,49 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
 
     #Create operation
     db_collection=self._document._get_collection()
+    if len(query)==0:
+        query=[{}]
 
-    if len(query)==0 and len(updates)>0:
-        if '$set' in updates and len(updates)==1: #Only insert one
-            result = db_collection.insert_one(updates['$set'])
-            ids.append(result.inserted_id)
-            msg='insert_one'
+    assert len(query)>0 or len(updates)>0, f'Nothing to update or create: query={query}; updates={updates}'
+
+    base_updates={key:val for key,val in updates.items() if key!='$set'}
+    ops=[]; combined_query=[]
+    for cur_query in query:
+        set_update={}
+        if '$set' in updates:
+            for key,val in updates['$set'].items():
+                if key not in cur_query:
+                    cur_query[key]=val
+                else:
+                    set_update[key]=val
+
+        cur_filter={}
+        for key,val in cur_query.items():
+            if (unique_keys is None and type(val) not in [list,tuple,np.ndarray]) or key in unique_keys:
+                cur_filter[key]=val
+            else:
+                set_update[key]=val
+
+        assert len(cur_filter)>0, f"Current filter length = 0: set_update={set_update}"
+        combined_query.append(cur_filter)
+
+        if len(base_updates)>0:
+            ops.append(UpdateOne(cur_filter,update={**({'$set':set_update} if len(set_update)>0 else {}),**base_updates},upsert=True))
         else:
-            q=updates.pop('$set') if '$set' in updates else {} #Update many based on $set as the query or update everything
-            db_collection.update_many(q,updates,upsert=True);
-            ids.extend([x['_id'] for x in db_collection.find(q,projection='_id')])
-            msg='update_many'
+            ops.append(ReplaceOne(cur_filter,replacement={**cur_filter,**set_update},upsert=True))
 
-    elif len(query)>0 and len(updates)==0: #Insert many
-        result = db_collection.insert_many(query)
-        ids.extend(result.inserted_ids)
-        msg='insert_many'
-
-    elif len(query)>0 and len(updates)==1 and '$set' in updates: #Bulk insert many
-        setq=updates['$set']
-        if unique_keys is None:
-            unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
-
-        ops=[]; combined_query={"$or":[]}
-        for cur_query in query:
-            cur_query.update(setq)
-            q={}
-            combined_set=False
-            for key in unique_keys:
-                if key in cur_query:
-                    if not combined_set:
-                        combined_query['$or'].append({})
-                        combined_set=True
-                    val=cur_query.pop(key)
-                    combined_query['$or'][-1][key]=val
-                    q[key]=val
-            ops.append(ReplaceOne(q,cur_query,upsert=True))
-
-        if len(ops)>0:
-            result=db_collection.bulk_write(ops, ordered=False)
-            cursor=self._document.objects.aggregate([
-                {'$match':{'$or':[{'table_name':'Traces'},{'table_name':'tedmp_table'}]}},
-                { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
-                {'$project':{'_id':0}},
-            ])
-            ids.extend(list(cursor)[0]['ids'])
-            #Insert new docs
-            # result=db_collection.insert_many(query)
-            # ids.extend(result.inserted_ids)
-            # #delete duplicates
-            # if len(unique_keys)>0:
-            #     deleted_count=delete_dups(self._document,unique_keys,keep_ids=ids)
-            #     if deleted_count>0:
-            #         logger.debug(f'update_or_create: During insert_many (with updates) - deleted {deleted_count} duplicate documents from {self._document} based on the keys: {unique_keys}')
-
-        msg='bulk ReplaceOne'
-    else:
-        raise Exception(f'Nothing to update or create: query={query}; and updates={updates}')
+    res=db_collection.bulk_write(ops,ordered=False)
+    query_pipeline=[
+        {'$match':{'$or':combined_query}},
+        { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
+        {'$project':{'_id':0}},
+    ]
+    cursor=self._document.objects.aggregate(query_pipeline)
+    ids.extend(list(cursor)[0]['ids'])
 
     res=ids if return_only_ids else self._document.objects(id__in=ids)
     diff_t = int((datetime.now() - start_t).total_seconds())
-    logger.debug(f'update_or_create: Performing {msg} on {self._document} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
+    logger.debug(f'update_or_create: Result for {self._document} with {len(query)} queries and {len(updates)} updates took {diff_t-last_diff_t} seconds, and returned {len(ids)} results')
     return res
 
 def df_to_records(self,df,keep_index=False,**metadata):
