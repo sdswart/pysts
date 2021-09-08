@@ -143,7 +143,7 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
 
         if len(ops)>0:
             result=db_collection.bulk_write(ops, ordered=False)
-            cursor=Table.objects.aggregate([
+            cursor=self.objects.aggregate([
                 {'$match':{'$or':[{'table_name':'Traces'},{'table_name':'tedmp_table'}]}},
                 { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
                 {'$project':{'_id':0}},
