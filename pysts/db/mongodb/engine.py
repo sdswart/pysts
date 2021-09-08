@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
-from pymongo import UpdateMany
+from pymongo import UpdateMany, ReplaceOne
 from pymongo.command_cursor import CommandCursor
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
@@ -126,20 +126,27 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
         if unique_keys is None:
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
 
+        ops=[]
         for cur_query in query:
             cur_query.update(setq)
+            q={}
+            for key in unique_keys:
+                if key in cur_query:
+                    q[key]=cur_query.pop(key)
+            ops.append(ReplaceOne(q,cur_query,upsert=True))
 
-        if len(query)>0:
+        if len(ops)>0:
+            result=db_collection.bulk_write(ops, ordered=False)
             #Insert new docs
-            result=db_collection.insert_many(query)
-            ids.extend(result.inserted_ids)
-            #delete duplicates
-            if len(unique_keys)>0:
-                deleted_count=delete_dups(self._document,unique_keys,keep_ids=ids)
-                if deleted_count>0:
-                    logger.debug(f'update_or_create: During insert_many (with updates) - deleted {deleted_count} duplicate documents from {self._document} based on the keys: {unique_keys}')
+            # result=db_collection.insert_many(query)
+            # ids.extend(result.inserted_ids)
+            # #delete duplicates
+            # if len(unique_keys)>0:
+            #     deleted_count=delete_dups(self._document,unique_keys,keep_ids=ids)
+            #     if deleted_count>0:
+            #         logger.debug(f'update_or_create: During insert_many (with updates) - deleted {deleted_count} duplicate documents from {self._document} based on the keys: {unique_keys}')
 
-        msg='insert_many (with updates)'
+        msg='bulk ReplaceOne'
     else:
         raise Exception(f'Nothing to update or create: query={query}; and updates={updates}')
 
