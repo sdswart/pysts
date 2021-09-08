@@ -126,17 +126,29 @@ def update_or_create(self,query=None,*args,files=None,unique_keys=None,max_queri
         if unique_keys is None:
             unique_keys=[key for key,val in query[0].items() if type(val) not in [list,tuple,np.ndarray]]
 
-        ops=[]
+        ops=[]; combined_query={"$or":[]}
         for cur_query in query:
             cur_query.update(setq)
             q={}
+            combined_set=False
             for key in unique_keys:
                 if key in cur_query:
-                    q[key]=cur_query.pop(key)
+                    if not combined_set:
+                        combined_query['$or'].append({})
+                        combined_set=True
+                    val=cur_query.pop(key)
+                    combined_query['$or'][-1][key]=val
+                    q[key]=val
             ops.append(ReplaceOne(q,cur_query,upsert=True))
 
         if len(ops)>0:
             result=db_collection.bulk_write(ops, ordered=False)
+            cursor=Table.objects.aggregate([
+                {'$match':{'$or':[{'table_name':'Traces'},{'table_name':'tedmp_table'}]}},
+                { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
+                {'$project':{'_id':0}},
+            ])
+            ids.extend(cursor[0]['ids'])
             #Insert new docs
             # result=db_collection.insert_many(query)
             # ids.extend(result.inserted_ids)
