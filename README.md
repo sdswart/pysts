@@ -23,10 +23,12 @@ Generate coverage report with: `py.test --cov=python_utils tests/`
 
 ####  before_script:
 ####    - bumpversion minor setup.py
+####    or
+####    - bumpversion --new-version 0.9.13 setup.py
 ####  script:
 ####    - pip install --user --upgrade setuptools wheel twine numpy
 ####    - python setup.py sdist bdist_wheel
-####    - python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/pysts-0.[VERSION].0* -u USERNAME -p PASSWORD
+####    - python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/pysts-0.9.13* -u USERNAME -p PASSWORD
 NOTE: Delete previous builds before uploading
 
 ####  Add pypi repo:

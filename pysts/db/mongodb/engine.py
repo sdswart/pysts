@@ -6,10 +6,11 @@ from pymongo.command_cursor import CommandCursor
 import mongoengine
 from mongoengine.queryset.queryset import QuerySet
 from mongoengine.base.document import BaseDocument
-from pysts.utils.utils import to_json_serializable
 from datetime import datetime
 
-from pysts.utils.utils import create_logger
+from pysts.utils.utils import create_logger, to_json_serializable
+from pysts.db.mongodb.utils import floor_timefield, datetimes_equal
+
 logger = create_logger(__name__) #pysts.db.mongodb.engine
 connect=mongoengine.connect
 Document=mongoengine.DynamicDocument
@@ -108,8 +109,14 @@ def update_or_create(self,query=None,*args,files=None,update=None,unique_keys=No
     db_collection=self._document._get_collection()
     if len(query)==0:
         query=[{}]
-        
+
     assert len(query)>0 or len(updates)>0, f'Nothing to update or create: query={query}; updates={updates}'
+
+    collection_options=db_collection.options()
+    is_timeseries='timeseries' in collection_options
+    timeseries_timefield=collection_options['timeseries']['timeField'] if is_timeseries else None
+    timeseries_granularity=collection_options['timeseries']['granularity'] if is_timeseries else None
+    if timeseries_granularity is not None and timeseries_granularity.endswith('s'): timeseries_granularity=timeseries_granularity[:-1]
 
     base_updates={key:val for key,val in updates.items() if key!='$set'}
     ops=[]; combined_query=[]
@@ -136,19 +143,48 @@ def update_or_create(self,query=None,*args,files=None,update=None,unique_keys=No
         assert len(cur_filter)>0, f"Current filter length = 0: set_update={set_update}"
         combined_query.append(cur_filter)
 
-        if len(base_updates)>0:
-            ops.append(UpdateOne(cur_filter,update={**({'$set':set_update} if len(set_update)>0 else {}),**base_updates},upsert=True))
+        if is_timeseries:
+            record={**cur_filter,**set_update}
+            record[timeseries_timefield]=floor_timefield(record[timeseries_timefield],granularity=timeseries_granularity)
+            if timeseries_timefield in combined_query[-1]:
+                del combined_query[-1][timeseries_timefield]
+            combined_query[-1]['$expr']={ '$eq': [{'$dateTrunc': {'date': "$Time" ,'unit': timeseries_granularity}},record[timeseries_timefield]]}
+            ops.append(record)
         else:
-            ops.append(ReplaceOne(cur_filter,replacement={**cur_filter,**set_update},upsert=True))
+            if len(base_updates)>0:
+                ops.append(UpdateOne(cur_filter,update={**({'$set':set_update} if len(set_update)>0 else {}),**base_updates},upsert=True))
+            else:
+                ops.append(ReplaceOne(cur_filter,replacement={**cur_filter,**set_update},upsert=True))
 
-    res=db_collection.bulk_write(ops,ordered=False)
-    query_pipeline=[
-        {'$match':{'$or':combined_query}},
-        { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
-        {'$project':{'_id':0}},
-    ]
-    cursor=self._document.objects.aggregate(query_pipeline)
-    ids.extend(list(cursor)[0]['ids'])
+    if is_timeseries:
+        existing_docs=list(db_collection.find({'$or':combined_query}))
+
+        new_ops=[];existing_ids=[]
+        for op,op_filter in zip(ops,combined_query):
+            existing_found=False
+            for i,existing_doc in enumerate(existing_docs):
+                if all([((key=='$expr' or key in existing_doc) and (datetimes_equal(existing_doc[timeseries_timefield],val['$eq'][1],timeseries_granularity) if key=='$expr' else existing_doc[key]==val)) for key,val in op_filter.items()]):
+                    existing_found=True
+                    break
+            if existing_found:
+                existing_doc=existing_docs.pop(i)
+                existing_ids.append(existing_doc['_id'])
+            else:
+                new_ops.append(op)
+        ids.extend(existing_ids)
+        if len(new_ops)>0:
+            logger.debug(f'update_or_create: Inserting {len(new_ops)} out of {len(ops)} submitted documents for the timeseries collection: {db_collection}')
+            result=db_collection.insert_many(new_ops)
+            ids.extend(result.inserted_ids)
+    else:
+        query_pipeline=[
+            {'$match':{'$or':combined_query}},
+            { '$group': { '_id': None, 'ids': { '$addToSet': "$_id" } } },
+            {'$project':{'_id':0}},
+        ]
+        res=db_collection.bulk_write(ops,ordered=False)
+        cursor=self._document.objects.aggregate(query_pipeline)
+        ids.extend(list(cursor)[0]['ids'])
 
     res=ids if return_only_ids else self._document.objects(id__in=ids)
     diff_t = int((datetime.now() - start_t).total_seconds())

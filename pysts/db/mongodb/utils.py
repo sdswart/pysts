@@ -3,6 +3,26 @@ from pymongo import MongoClient
 import io
 import pickle
 import os
+import datetime as dt
+
+def floor_timefield(obj: dt.datetime,granularity='seconds') -> dt.datetime:
+    granularity=granularity.lower()
+    if granularity.endswith('s'): granularity=granularity[:-1]
+    granularities=['microsecond','second','minute','hour','day','month','year']
+    kwargs={}
+    for x in granularities:
+        if x==granularity: break
+        kwargs[x]=0
+    return obj.replace(**kwargs)
+
+def datetimes_equal(obj1: dt.datetime,obj2: dt.datetime,granularity='seconds') -> bool:
+    granularity=granularity.lower()
+    if granularity.endswith('s'): granularity=granularity[:-1]
+    granularities=['microsecond','second','minute','hour','day','month','year']
+    for x in granularities[::-1]:
+        if getattr(obj1,x)!=getattr(obj2,x): return False
+        if x==granularity: break
+    return True
 
 def get_client(url='l3-37:27017/',username=None,password=None,srv=False):
     prefix='mongodb'
