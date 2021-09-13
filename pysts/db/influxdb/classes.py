@@ -97,7 +97,7 @@ class InfluxDB(object):
             filters.append(get_filter('tag',tags))
         if keep_fields is not None:
             if type(keep_fields) not in [list,tuple,np.ndarray]: keep_fields=[keep_fields]
-            args.extend(keep_fields)
+            args=list(args)+keep_fields
         kwargs.update({x:None for x in args if x not in kwargs})
         if len(kwargs)>0:
             for key,val in kwargs.items():
@@ -112,6 +112,8 @@ class InfluxDB(object):
             if type(extra_flux_commands) not in [list,tuple,np.ndarray]: extra_flux_commands=[extra_flux_commands]
             extra_flux_commands=[f'{"" if x.startswith(" ") else " "}{"" if x.strip().startswith("|>") else "|> "}{x}' for x in extra_flux_commands]
             flux.extend(extra_flux_commands)
+
+
 
         if return_dataframe:
             flux.append(' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
