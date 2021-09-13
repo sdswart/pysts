@@ -58,7 +58,6 @@ class InfluxDB(object):
     def get_data(self,bucket_name,*args,return_dataframe=True,as_stream=False,**kwargs):
         query=self.get_flux(bucket_name,*args,return_dataframe=return_dataframe,**kwargs)
         logger.debug(f'Executing query: {query}')
-        print(query)
         query_api = self.client.query_api()
         if return_dataframe:
             return query_api.query_data_frame(query)
