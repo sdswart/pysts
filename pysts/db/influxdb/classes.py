@@ -99,12 +99,15 @@ class InfluxDB(object):
             if type(keep_fields) not in [list,tuple,np.ndarray]: keep_fields=[keep_fields]
             args=list(args)+keep_fields
         kwargs.update({x:None for x in args if x not in kwargs})
+        field_filters=[]
         if len(kwargs)>0:
             for key,val in kwargs.items():
                 cur_filter=get_filter('_field',key)
                 if val is not None:
                     cur_filter=f'({cur_filter} and {get_filter("_value",val)})'
-                filters.append(cur_filter)
+                field_filters.append(cur_filter)
+        if len(field_filters)>0:
+            filters.append(("(" if len(field_filters)>1 else "")+" or ".join(field_filters)+(")" if len(field_filters)>1 else ""))
         if len(filters)>0:
             flux.append(f' |> filter(fn: (r) => {" and ".join(filters)})')
 
