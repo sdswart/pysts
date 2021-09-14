@@ -165,6 +165,7 @@ class InfluxDB(object):
                     t_range=(t_range[0].replace(tzinfo=None),t_range[1].replace(tzinfo=None))
                     data_index=data.index.tz_localize(None)
                     data=data[(data_index<t_range[0]) | (data_index>t_range[1])]
+            num_points=data.shape[0]
         else:
             if not type(data) in [tuple,list]:
                 data=[data]
@@ -187,15 +188,20 @@ class InfluxDB(object):
                     tags={} if len(tag_columns)==0 else {'tags':{key:datum.pop(key) for key in tag_columns if key in datum}}
                     points.append(Point.from_dict({'measurement':measurement,'time':datum.pop(time_col),'fields':datum,**tags}))
             data=points
+            num_points=len(data)
 
-        if write_options is None:
-            write_options={}
-        if batch_size is not None:
-            write_options['batch_size']=batch_size
-        if flush_interval is not None:
-            write_options['flush_interval']=flush_interval
-        options={} if len(write_options)==0 else {'write_options':WriteOptions(**write_options)}
-        with self.client.write_api(**options) as write_api:
-            write_api.write(bucket=bucket_name, record=data,
-                        data_frame_tag_columns=tag_columns,
-                        data_frame_measurement_name=measurement)
+        if num_points>0:
+            if write_options is None:
+                write_options={}
+            if batch_size is not None:
+                write_options['batch_size']=batch_size
+            elif num_points>5000: #Ideal = 5000 to 10000 - use 10000
+                write_options['batch_size']=min([num_points,10000])
+
+            if flush_interval is not None:
+                write_options['flush_interval']=flush_interval
+            options={} if len(write_options)==0 else {'write_options':WriteOptions(**write_options)}
+            with self.client.write_api(**options) as write_api:
+                write_api.write(bucket=bucket_name, record=data,
+                            data_frame_tag_columns=tag_columns,
+                            data_frame_measurement_name=measurement)
