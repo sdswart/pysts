@@ -201,6 +201,7 @@ class InfluxDB(object):
             if flush_interval is not None:
                 write_options['flush_interval']=flush_interval
             options={} if len(write_options)==0 else {'write_options':WriteOptions(**write_options)}
+            logger.debug(f'Writing data with {num_points} points to bucket: {bucket_name}, measurement: {measurement}, with write_options: {write_options}')
             with self.client.write_api(**options) as write_api:
                 write_api.write(bucket=bucket_name, record=data,
                             data_frame_tag_columns=tag_columns,
