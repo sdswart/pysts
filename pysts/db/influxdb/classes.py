@@ -150,16 +150,10 @@ class InfluxDB(object):
         return "".join(flux)
 
     def get_time_range(self,bucket_name,**kwargs):
-        start_vals=self.get_data(bucket_name,return_dataframe=False,extra_flux_commands=[
-            'keep(columns: ["_time"])',
-            'first(column: "_time")',
-        ],**kwargs)
-        stop_vals=self.get_data(bucket_name,return_dataframe=False,extra_flux_commands=[
-            'keep(columns: ["_time"])',
-            'last(column: "_time")',
-        ],**kwargs)
+        start_vals=self.get_data(bucket_name,return_dataframe=False,keep_keys=['_time'],extra_flux_commands='first(column: "_time")',**kwargs)
+        stop_vals=self.get_data(bucket_name,return_dataframe=False,keep_keys=['_time'],extra_flux_commands='last(column: "_time")',**kwargs)
         if len(start_vals)>0 and len(stop_vals)>0:
-            return start_vals[0]['_time'],stop_vals[-1]['_time']
+            return min([x['_time'] for x in start_vals]),max([x['_time'] for x in stop_vals])
 
     def add_data(self,bucket_name,data,measurement,time_col=None,tag_columns=None,show_logs=False,
                     write_options=None,batch_size=None, flush_interval=None, remove_existing_times=True):
@@ -181,12 +175,12 @@ class InfluxDB(object):
                     time_col=cols[0]
                 data=data.set_index(time_col)
 
-            df.index=df.index.map(add_tzinfo)
+            data.index=data.index.map(add_tzinfo)
 
             if remove_existing_times:
-                t_range=self.get_time_range(bucket_name,measurements=measurement,start=df.index.min(),stop=df.index.max())
+                t_range=self.get_time_range(bucket_name,measurements=measurement,start=data.index.min(),stop=data.index.max())
                 if t_range is not None:
-                    data=data[(df.index<t_range[0]) | (df.index>t_range[1])]
+                    data=data[(data.index<t_range[0]) | (data.index>t_range[1])]
             num_points=data.shape[0]
         else:
             if not type(data) in [tuple,list]:
