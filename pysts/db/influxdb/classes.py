@@ -113,7 +113,11 @@ class InfluxDB(object):
         if measurements is not None:
             filters.append(get_filter('_measurement',measurements))
         if tags is not None:
-            filters.append(get_filter('tag',tags))
+            if isinstance(tags,dict):
+                for key,val in tags.items():
+                    filters.append(get_filter(key,val))
+            elif len(tags)>0:
+                filters.append(get_filter('tag',tags))
         if keep_fields is not None:
             if type(keep_fields) not in [list,tuple,np.ndarray]: keep_fields=[keep_fields]
             args=list(args)+keep_fields
@@ -162,51 +166,34 @@ class InfluxDB(object):
         """
 
         logging_for_dataframe_serializer(show_logs)
-        if isinstance(data,pd.DataFrame):
-            if data.shape[0]==0:
-                return
-
-            #Make sure the index is time
-            index=data.index
-            if index.name is None or not isinstance(index[0],datetime):
-                if time_col is None:
-                    cols=[x for x in data.columns if isinstance(data[x].iloc[0],datetime)]
-                    assert len(cols)==1, 'Could not identify the time column in the dataframe. Please set it as the index or provide the label of the column as the variable time_col'
-                    time_col=cols[0]
-                data=data.set_index(time_col)
-
-            data.index=data.index.map(add_tzinfo)
-
-            if remove_existing_times:
-                t_range=self.get_time_range(bucket_name,measurements=measurement,start=data.index.min(),stop=data.index.max())
-                if t_range is not None:
-                    data=data[(data.index<t_range[0]) | (data.index>t_range[1])]
-            num_points=data.shape[0]
-        else:
+        if not isinstance(data,pd.DataFrame):
             if not type(data) in [tuple,list]:
                 data=[data]
             assert isinstance(data[0],dict) and len(data[0])>0, "Data should be one of: dict, list of dicts or a pandas dataframe"
+            data=pd.DataFrame(data)
 
+        if data.shape[0]==0:
+            return
+
+        #Make sure the index is time
+        index=data.index
+        if index.name is None or not isinstance(index[0],datetime):
             if time_col is None:
-                cols=[key for key,val in data[0].items() if isinstance(val,datetime)]
-                assert len(cols)==1, 'Could not identify the time column in the data. Please set it as the index or provide the label of the column as the variable time_col'
+                cols=[x for x in data.columns if isinstance(data[x].iloc[0],datetime)]
+                assert len(cols)==1, 'Could not identify the time column in the dataframe. Please set it as the index or provide the label of the column as the variable time_col'
                 time_col=cols[0]
-            if tag_columns is None:
-                tag_columns=[]
-            if not type(tag_columns) in [list,tuple]:
-                tag_columns=[tag_columns]
-            points=[]
-            t_range=None
-            if remove_existing_times:
-                data_times=np.array([x[time_col] for x in data])
-                t_range=self.get_time_range(bucket_name,measurements=measurement,start=data_times.min(),stop=data_times.max())
-            for datum in data:
-                datum[time_col]=add_tzinfo(datum[time_col])
-                if t_range is None or datum[time_col]<t_range[0] or datum[time_col]>t_range[1]:
-                    tags={} if len(tag_columns)==0 else {'tags':{key:datum.pop(key) for key in tag_columns if key in datum}}
-                    points.append(Point.from_dict({'measurement':measurement,'time':datum.pop(time_col),'fields':datum,**tags}))
-            data=points
-            num_points=len(data)
+            data=data.set_index(time_col)
+
+        data_times=np.array([add_tzinfo(x) for x in data.index])
+        data.index=data_times
+
+        if remove_existing_times:
+            tags=None if tag_columns is None else {key:list(data[key].unique()) for key in tag_columns}
+            t_range=self.get_time_range(bucket_name,measurements=measurement,start=data_times.min(),stop=data_times.max(),tags=tags)
+            if t_range is not None:
+                data=data[(data_times<t_range[0]) | (data_times>t_range[1])]
+
+        num_points=data.shape[0]
 
         if num_points>0:
             if write_options is None:

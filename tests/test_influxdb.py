@@ -56,3 +56,11 @@ class TestClass:
 
         t0, t1 = db.get_time_range(bucket_name,measurements=name)
         assert t0==min(times) and t1==max(times), f'Start and end times should have been ({min(times)}, {max(times)}) but got ({t0}, {t1}) instead'
+
+        #Try add a dataframe with no timezone
+        now=now.replace(tzinfo=None)
+        times=[now-timedelta(seconds=x) for x in range(5)]
+        objs=[{'data':111,'beta':i,'time':t,'location':'A'} for i,t in enumerate(times)]
+        df=pd.DataFrame(objs)
+        #temp=df[df.time>]
+        db.add_data(bucket_name,data=df,measurement=name,tag_columns=['location'])
