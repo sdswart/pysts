@@ -162,7 +162,9 @@ class InfluxDB(object):
             if remove_existing_times:
                 t_range=self.get_time_range(bucket_name,measurements=measurement)
                 if t_range is not None:
-                    data=data[(data.index<t_range[0]) | (data.index>t_range[1])]
+                    t_range=(t_range[0].replace(tzinfo=None),t_range[1].replace(tzinfo=None))
+                    data_index=data.index.tz_localize(None)
+                    data=data[(data_index<t_range[0]) | (data_index>t_range[1])]
         else:
             if not type(data) in [tuple,list]:
                 data=[data]
