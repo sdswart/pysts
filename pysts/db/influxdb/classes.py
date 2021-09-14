@@ -184,7 +184,7 @@ class InfluxDB(object):
             df.index=df.index.map(add_tzinfo)
 
             if remove_existing_times:
-                t_range=self.get_time_range(bucket_name,measurements=measurement)
+                t_range=self.get_time_range(bucket_name,measurements=measurement,start=df.index.min(),stop=df.index.max())
                 if t_range is not None:
                     data=data[(df.index<t_range[0]) | (df.index>t_range[1])]
             num_points=data.shape[0]
@@ -204,7 +204,8 @@ class InfluxDB(object):
             points=[]
             t_range=None
             if remove_existing_times:
-                t_range=self.get_time_range(bucket_name,measurements=measurement)
+                data_times=np.array([x[time_col] for x in data])
+                t_range=self.get_time_range(bucket_name,measurements=measurement,start=data_times.min(),stop=data_times.max())
             for datum in data:
                 datum[time_col]=add_tzinfo(datum[time_col])
                 if t_range is None or datum[time_col]<t_range[0] or datum[time_col]>t_range[1]:
