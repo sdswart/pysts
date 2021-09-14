@@ -1,6 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta
+import pytz
 
 from influxdb_client import InfluxDBClient, BucketRetentionRules, Point, WriteOptions
 from influxdb_client.extras import pd, np
@@ -19,6 +20,22 @@ def logging_for_dataframe_serializer(enable=True):
             loggerSerializer.addHandler(handler)
     else:
         loggerSerializer.setLevel(level=logging.ERROR)
+
+def remove_tzinfo(dt):
+    if isinstance(dt,datetime):
+        dt=dt.replace(tzinfo=None)
+    return dt
+
+def add_tzinfo(dt):
+    if isinstance(dt,datetime):
+        if dt.tzinfo is None:
+            dt=dt.replace(tzinfo=pytz.UTC)
+    return dt
+
+def datetime_to_RFC3339(dt):
+    if isinstance(dt,datetime):
+        dt=add_tzinfo(dt).isoformat()
+    return dt
 
 class InfluxDB(object):
     _client=None
@@ -73,6 +90,8 @@ class InfluxDB(object):
             args can be used to check if a _field exists
             kwargs can be used to check if a _field is equal to the given _value
         """
+        start=datetime_to_RFC3339(start)
+        stop=datetime_to_RFC3339(stop)
         flux=[
             f'from(bucket:"{bucket_name}")',
             f' |> range(start: {start}, stop: {stop})' if stop is not None else f' |> range(start: {start})'
@@ -131,13 +150,16 @@ class InfluxDB(object):
         return "".join(flux)
 
     def get_time_range(self,bucket_name,**kwargs):
-        kwargs['return_dataframe']=False
-        kwargs['extra_flux_commands']=[
+        start_vals=self.get_data(bucket_name,return_dataframe=False,extra_flux_commands=[
             'keep(columns: ["_time"])',
-            'sort(columns: ["_time"])',
-        ]
-        if len(vals := self.get_data(bucket_name,**kwargs))>0:
-            return vals[0]['_time'],vals[-1]['_time']
+            'first(column: "_time")',
+        ],**kwargs)
+        stop_vals=self.get_data(bucket_name,return_dataframe=False,extra_flux_commands=[
+            'keep(columns: ["_time"])',
+            'last(column: "_time")',
+        ],**kwargs)
+        if len(start_vals)>0 and len(stop_vals)>0:
+            return start_vals[0]['_time'],stop_vals[-1]['_time']
 
     def add_data(self,bucket_name,data,measurement,time_col=None,tag_columns=None,show_logs=False,
                     write_options=None,batch_size=None, flush_interval=None, remove_existing_times=True):
@@ -159,12 +181,12 @@ class InfluxDB(object):
                     time_col=cols[0]
                 data=data.set_index(time_col)
 
+            df.index=df.index.map(add_tzinfo)
+
             if remove_existing_times:
                 t_range=self.get_time_range(bucket_name,measurements=measurement)
                 if t_range is not None:
-                    t_range=(t_range[0].replace(tzinfo=None),t_range[1].replace(tzinfo=None))
-                    data_index=data.index.tz_localize(None)
-                    data=data[(data_index<t_range[0]) | (data_index>t_range[1])]
+                    data=data[(df.index<t_range[0]) | (df.index>t_range[1])]
             num_points=data.shape[0]
         else:
             if not type(data) in [tuple,list]:
@@ -184,6 +206,7 @@ class InfluxDB(object):
             if remove_existing_times:
                 t_range=self.get_time_range(bucket_name,measurements=measurement)
             for datum in data:
+                datum[time_col]=add_tzinfo(datum[time_col])
                 if t_range is None or datum[time_col]<t_range[0] or datum[time_col]>t_range[1]:
                     tags={} if len(tag_columns)==0 else {'tags':{key:datum.pop(key) for key in tag_columns if key in datum}}
                     points.append(Point.from_dict({'measurement':measurement,'time':datum.pop(time_col),'fields':datum,**tags}))
