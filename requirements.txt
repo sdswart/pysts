@@ -4,7 +4,9 @@ twine
 numpy
 pandas
 plotly
-dash
+dash==1.18.0
+quart
+quart_compress
 dash-core-components
 dash-bootstrap-components
 dash-html-components

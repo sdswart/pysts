@@ -1,4 +1,3 @@
-import dash
 from .base import *
 from .base_component import Component
 from .uploader import Uploader

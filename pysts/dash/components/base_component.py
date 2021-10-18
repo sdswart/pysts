@@ -1,7 +1,10 @@
-import dash
-from dash.dependencies import Input, Output, State, MATCH, ALL
+import dash_devices
+
+# Callbacks from dash_devices
+from dash_devices.dependencies import Input, Output, State, MATCH, ALL
 import uuid
 
+#Components from dash
 from dash.development.base_component import Component as BaseComponent, ComponentMeta
 from plotly.basedatatypes import BaseFigure
 
@@ -31,12 +34,13 @@ def iterable(obj):
 class Callback(object):
     contexts = threading.local()
     fcn=outputs=inputs=states=format_output=None
-    def __init__(self,fcn=None,outputs=None,inputs=None,states=None,format_output=None):
+    def __init__(self,fcn=None,outputs=None,inputs=None,states=None,format_output=None,**kwargs):
         self.fcn=fcn
         self.outputs=to_list(outputs)
         self.inputs=to_list(inputs)
         self.states=to_list(states)
         self.format_output=format_output
+        self.kwargs=kwargs
     def __str__(self):
         return f'Callback(fcn={self.fcn}, outputs={self.outputs}, inputs={self.inputs}, states={self.states}, format_output={self.format_output})'
     def __repr__(self):
@@ -117,9 +121,9 @@ class Component(object):
             instances=self.class_instances()
             self._id=f'{self.__class__.__name__}-{len(instances)}'
         return self._id
-    def __call__(self, outputs, inputs, states=None, format_output=None):
+    def __call__(self, outputs, inputs, states=None, format_output=None,**kwargs):
         def rtn(fcn):
-            self.add_callback(fcn=fcn,outputs=outputs,inputs=inputs,states=states,format_output=format_output)
+            self.add_callback(fcn=fcn,outputs=outputs,inputs=inputs,states=states,format_output=format_output,**kwargs)
         return rtn
     def className(self,names):
         class_names=self.layout.obj.className
@@ -129,9 +133,9 @@ class Component(object):
             class_names+=' '
         self.layout.obj.className=class_names+names.strip()
         return self
-    def add_callback(self,fcn, outputs, inputs, states=None, format_output=None):
+    def add_callback(self,fcn, outputs, inputs, states=None, format_output=None,**kwargs):
         if not self.callbacks: self.callbacks=[]
-        self.callbacks.append(Callback(fcn=fcn,outputs=outputs,inputs=inputs,states=states,format_output=format_output))
+        self.callbacks.append(Callback(fcn=fcn,outputs=outputs,inputs=inputs,states=states,format_output=format_output,**kwargs))
         self.callbacks[-1].register()
     def __getattribute__(self, name):
         properties=object.__getattribute__(self, 'properties')
@@ -201,16 +205,17 @@ def inputs_match_trigger(inputs,states,callback_trigger):
     input_in_trigger = lambda x,trigger: ((x[0]['type'] if isinstance(x[0],dict) and 'type' in x[0] else str(x[0])) in trigger) and (x[1] in trigger)
     return any([any([input_in_trigger(x,trigger_x) for trigger_x in trigger_ids]) for x in inputs+states]) #[{'prop_id': 'alert-interval-88C021.n_intervals', 'value': 5}]
 
-def generate_callback(app,outputs,inputs,states,callbacks):
+def generate_callback(app,outputs,inputs,states,callbacks,**kwargs):
     @app.callback([Output(x[0],x[1]) for x in outputs],
                 [Input(x[0],x[1]) for x in inputs],
-                [State(x[0],x[1]) for x in states])
+                [State(x[0],x[1]) for x in states],
+                **kwargs)
     def rtn(*values):
         values=list(values)
         inputs_states=inputs+states
         res=values[-len(outputs):]
         for callback in callbacks:
-            if inputs_match_trigger(callback.inputs,callback.states,dash.callback_context.triggered):
+            if inputs_match_trigger(callback.inputs,callback.states,dash_devices.callback_context.triggered):
                 values_pos=[inputs_states.index(x) for x in (callback.inputs+callback.states)]
                 output_pos=[outputs.index(x) for x in (callback.outputs)]
                 fcn_res=callback.fcn(*[values[i] for i in values_pos])
@@ -248,10 +253,11 @@ def generate_all_callbacks(app,verbose=0):
     for combined_callback in [x for x in combined_callbacks if x is not None]:
         output_states=combined_callback['outputs']
 
-        unique_inputs=[];unique_states=[]
+        unique_inputs=[];unique_states=[];callback_kwargs={}
         for callback in combined_callback['callbacks']:
             unique_inputs.extend([x for x in callback.inputs if x not in unique_inputs])
             unique_states.extend([x for x in callback.states if x not in (unique_states+output_states)])
+            callback_kwargs.update(callback.kwargs)
         unique_states.extend(output_states)
         unique_inputs_states=unique_inputs+unique_states
 
@@ -260,4 +266,4 @@ def generate_all_callbacks(app,verbose=0):
             app.logger.warning(f'All Outputs = {cur_outputs}\nAll Inputs = {cur_inputs}\nAll States = {cur_states}')
             app.logger.warning("Callbacks = \n\t"+"\n\t".join([str(x) for x in cur_callbacks])+"\n\n")
 
-        generate_callback(app,cur_outputs,cur_inputs,cur_states,callbacks=cur_callbacks)
+        generate_callback(app,cur_outputs,cur_inputs,cur_states,callbacks=cur_callbacks,**callback_kwargs)

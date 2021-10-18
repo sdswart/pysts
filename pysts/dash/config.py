@@ -1,4 +1,5 @@
 import os
+import secrets
 
 env_file_variables=None
 def get_variable(name,default=None):
@@ -16,7 +17,7 @@ def get_variable(name,default=None):
     return os.environ.get(name,default)
 
 class Config(object):
-    SECRET_KEY=get_variable('SECRET_KEY','adsfyiu3S3!jE%$axbjhwa195sxc@S')
+    SECRET_KEY=get_variable('SECRET_KEY',secrets.token_urlsafe(16))
     def get(self,name,default=None):
         if hasattr(self,name):
             return getattr(self,name)

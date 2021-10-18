@@ -1,6 +1,6 @@
 from .base import *
 from .base_component import Component, Item
-from flask import send_file,make_response
+from quart import send_file,make_response
 import pandas as pd
 import threading
 import weakref

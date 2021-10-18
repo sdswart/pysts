@@ -1,11 +1,10 @@
-import dash
+import dash_devices
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import os
 import posixpath
-import flask
-request=flask.request
-Flask=flask.Flask
+import quart
+import secrets
 
 from .components.base import *
 from . import components
@@ -13,14 +12,14 @@ from .utils import open_browser
 from .config import Config
 
 def create_app(main_component,pathname_prefix='/',config=None,static_path=None,static_route='/static/',external_stylesheets=None,external_scripts=None):
-    server = Flask(__name__)
-    SECRET_KEY=config.SECRET_KEY if config is not None else 'adsfyiu3S3!jE%$axbjhwa195sxc@S'
+    server = quart.Quart(__name__)
+    SECRET_KEY=config.SECRET_KEY if config is not None else secrets.token_urlsafe(16)
     server.secret_key=SECRET_KEY
     if external_stylesheets is None:
         external_stylesheets=[]
     external_stylesheets.append(dbc.themes.BOOTSTRAP)
 
-    app = dash.Dash(server=server,
+    app = dash_devices.Dash(server=server,
         url_base_pathname=pathname_prefix,
         external_stylesheets=external_stylesheets,
         external_scripts=external_scripts,
@@ -41,17 +40,17 @@ def create_app(main_component,pathname_prefix='/',config=None,static_path=None,s
         # for root, fols, files in os.walk(static_path):
         #     url_path = posixpath.join(static_route, *[x for x in os.path.relpath(root,static_path).split(os.sep) if not x.startswith('.')])
         @app.server.route('{}<path:file_path>/<filename>'.format(static_route))
-        def serve_static(file_path,filename):
+        async def serve_static(file_path,filename):
             file_path=os.path.join(file_path,filename).replace('/',os.sep)
             fullpath=os.path.join(static_path,file_path)
             assert os.path.isfile(fullpath), f'The file {file_path} could not be found'
             path,file=os.path.split(fullpath)
-            return flask.send_from_directory(path,file)
+            return await quart.send_from_directory(path,file)
     return app
 
 def start_app(main_component=None,dashapp=None,pathname_prefix='/',debug=True, dev_tools_ui=True, dev_tools_props_check=True, host='0.0.0.0',port=5000,config=None,
             static_path=None,static_route='/static/',external_stylesheets=None,external_scripts=None):
-    assert main_component is not None and app is not None, 'main_component or dashapp is required!'
+    assert main_component is not None or dashapp is not None, 'main_component or dashapp is required!'
     if config is None:
         config=Config()
     if dashapp is None:

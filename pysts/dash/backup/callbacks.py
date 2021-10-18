@@ -1,6 +1,6 @@
 from dash.dependencies import Input, Output, State, MATCH, ALL
 
-from flask import Flask, session
+from quart import Quart, session
 from ..config import *
 
 def add_callbacks(app):
