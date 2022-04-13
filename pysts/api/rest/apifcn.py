@@ -531,7 +531,7 @@ class APIFcn(object):
             for params in params_from_kwargs:
                 kwargs.update({key:(kwargs[val] if isinstance(val,str) else val(**kwargs)) for key,val in params.items()})
             fcn=getattr(obj,fcn_name)
-
+            breakpoint()
             sig=inspect.signature(fcn)
             params={key:param.kind for key,param in sig.parameters.items() if key not in ['self','cls']}
             if 4 not in list(params.values()): #Has **keyword param
